@@ -4,3 +4,11 @@
 .httr-oauth
 .DS_Store
 .quarto
+.gitignore
+
+# exclude specific files 
+chironomid.txt
+Exam_BIO302_partAB.html
+Exam_BIO302_partAB.qmd
+Exam_BIO302.html
+Exam_BIO302.qmd

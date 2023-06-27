@@ -1,0 +1,137 @@
+---
+title: "Exam BIO302"
+author: "Anette Aune"
+format:
+  html:
+    self-contained: true
+execute: 
+  warning: false
+  message: false
+editor: visual
+date: today
+bibliography: reproducibility.bib
+---
+
+## Part A - Reproducibility
+
+### Task A.1
+
+**Continue with your attempt to reproduce part of a paper from archived data from the first practical. Archive the code and text on GitHub and include the link to your repo in your answer here.**
+
+- **Make at least two commits to git.**  
+- **Cite the original paper and data.** 
+- **Make your reproduction as reproducible as possible (i.e. it should be possible for me to reproduce your work after cloning your repo and downloading the data).**
+
+The paper I have used is Predicting the nationwide outmigration timing of Atlantic salmon (*Salmo salar*) smolts along 12 degrees of latitude in Norway, by [@Vollset2021].
+
+>
+[Link to my repository](https://github.com/Anetne/Exam-BIO302.git)
+>
+[Link to the paper](https://onlinelibrary.wiley.com/doi/epdf/10.1111/ddi.13285)
+>
+[Link to data download](https://datadryad.org/stash/dataset/doi:10.5061%2Fdryad.p2ngf1vq9)
+
+```{r}
+#| label: packages-and-data 
+
+# Load necessary packages 
+library(here)
+library(tidyverse)
+library(broom)
+library(viridis) 
+library(mgcv)
+
+# Get the data into RStudio
+smolt_data <- read_csv(here("smoltOut.csv"),
+                       locale = locale(encoding = "ISO-8859-1"))|> # for R to be able to read "å"
+  janitor::clean_names() 
+
+```
+
+I chose to reproduce figure 1 of [@Vollset2021] paper as I have never made any figures that look anything like that. It seemed like a figure that could be reproduced easily even for inexperienced people as me. 
+
+```{r}
+#| label: fig-25-migration
+#| fig-height: 7
+#| fig-width: 9
+#| fig-cap: "Tile plot of raw data of day of 25% migration for *Salmo salar* in different Norwegian rivers and years reproduced from [@Vollset2021]."
+
+# Reordering the rivers by latitudinal placement. 
+smolt_data$river <- reorder(smolt_data$river, smolt_data$lat)
+
+(smolt_fig <- ggplot(data = smolt_data, 
+                     aes(x = fyear, y = river)) +
+   geom_tile(aes(fill = d25)) + 
+   scale_fill_viridis(option = "plasma") + # to get the same color scale as the original paper
+   theme_classic() + 
+   labs(x = "Year",
+        y = "River",
+        fill = "Date of 25% migration") + 
+   theme(legend.position = "top",
+         legend.key.width = unit(2, 'cm'),
+         legend.key.height = unit(0.4, 'cm')) 
+) 
+```
+
+I also decided to try to reproduce figure 2 from [@Vollset2021] as this one might be more challenging as I have to create a model to make predictions as well. 
+
+```{r}
+#| label: fig-test
+#| fig-height: 7
+#| fig-width: 9
+#| fig-cap: "An attempt to reproduce figure 2 from the paper by [@Vollset2021] showing observed and predicted dates of 25% smolt migration for the different rivers."
+
+# Fitting a gam model to the data 
+gam_model <- gam(d25 ~ s(lat, lon) + temp + flow + method + s(year, bs = "re"), 
+                 data = smolt_data, family = gaussian())
+
+# Checking the model
+summary(gam_model)
+
+# Putting the predicted values into the data set
+smolt_data$predicted_dates <- predict.gam(gam_model, type = "response")
+
+# Plotting the figure
+ggplot(smolt_data, aes(y = d25, x = predicted_dates, color = river)) +
+  geom_point() +
+  geom_abline(intercept = 0, slope = 1) +
+  geom_smooth(method = "lm", se = FALSE) +
+  labs(y = "Observed Date of 25% Outmigration", 
+       x = "Predicted Date of 25% Outmigration") +
+  scale_color_viridis_d(option = "plasma") +
+  theme_classic() +
+  theme(legend.position = "none") 
+```
+
+### Task A.2
+
+**Discuss how well you managed to reproduce the part of paper you were working on and what challenges you faced. If you looked at two papers discuss both.**
+
+I think I managed to reproduce figure 1 rather well, it looks more or less identical. Their figure text told me I should make a tile plot and I therefore chose to use ggplot and geom_tile to make the figure. When reproducing this figure, I first had a lot of problems with many of the river names not showing up on my axis. I realized it was because of their Norwegian names containing Norwegian letters. It took me a while to find how to make RStudio understand these letters, but ended up with adding the term below when importing the file. 
+
+> locale = locale(encoding = "ISO-8859-1")
+
+Afterwards, I saw that I did not get the river names in the same order as in the paper (by latitude), they were ordered alphabetically. I tried a lot of different things within ggplot, however, none of the things I tried to change this did work. I ended up having to reorder the rivers in the data set before creating the figure. 
+
+Otherwise, the main challenges was the aesthetics; trying to find the correct colors and dimensions of the figure. These are however, not the most important parts in the sake of reproducibility. The data was rather easy to understand and read so it was not too hard to extract the values I needed to create a figure that would give the same information even though it might have been a bit harder to read and aesthetically different if I did not fix the challenges listed above. All together, at least this first figure of their paper is reproducible. 
+
+I also tried to reproduce figure 2, however this was a lot more challenging. It said in the paper to usa a gam() model and that they chose to go with the simpler of two models they created. I tried to create the same model, however, I have never used "smooth terms" before and am unsure whether I did that correctly. I used predict.gam() as the paper said to and then added it to the data set before plotting. 
+
+At first glance at my reproduction of figure 2, I thought I did very well except that the colours have been given to different lines than in the original figure. However, when looking closer at the figure I see that some of the points as well as the lines for each river does not have the same values. I did look at the summary of my gam model as well, and the values in this summary does not seem to be the same as the ones listed in the papers result section. This figure I did not manage to reproduce
+
+### Task A.3
+
+**Discuss how well the original paper meets best practice for reproducibility, i.e. what should the authors have done to make their analysis more reproducible, and what they did well.**
+
+The paper contains only 2 short sentence about how they did all their data visualization. This is not a lot of information considering that the paper did contain 4 figures in total. However, the paper did contain a section on data analysis with some information about their model creating, and some more information necessary to create figure 2 could also be found in the result section. It could be a bit hard to understand everything in their data analysis section of the method. They mentioned that they made two models there, where one model included spring discharge. This data on spring discharge was not to be found in the data (as far as I could see). To recreate this I would have to go to a separate webpage and look for it, which would be challenging as little is specified around how I could do this and extract the correct values. If they included this it would have helped a lot. 
+
+In addition, since I was not able to reproduce their figure, I think that a bit more and detailed information would help to ensure that I could reproduce both the model and the plot. I am not sure where I went wrong, however I think it has something to do with the way I made the model. I would usually prefer to see the model people use to be explicitly expressed in the method, that way the reader can be completely sure they get the model right. In addition, if the model were explicitly expressed then the authors would have to at least give a short explanation of the variable names used in the data, which would also help the reader to understand the data better. E.g., when I first read through the data analysis section and looked through the data set, I did think that d25 could be the column for the 25% discharge increase, however I did soon realize that it had to be the date of 25% migration (this was before I realized that discharged was not added to the data). Clearer naming of variables would avoid such confusion. 
+
+However, even though I had some problems, I think all the figures of the paper might be possible to reproduce by people with more R skills than me. They did mention something about in sample and out of sample when making the predictions. I did try to incorporate this into my model however this did not help, and I had a really hard time understanding how I was supposed to deal with these as well as the mixed effect model they mentioned. 
+
+Other ways to make their analysis more reproducible is for example to create a ReadMe file to go with the data set, giving a more detailed explanation of their data analysis and figure making. Most preferably, they should add their script to go with the data. Sadly, this does not seem to yet be the standard of science. Full transparency should always be the aim to ensure more reproducible, robust, and reliable findings. 
+
+## References {-}
+
+::: {#refs}
+:::
